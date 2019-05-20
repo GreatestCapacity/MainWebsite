@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GreatestCapacity</title>
+</head>
+<body>
+<h1>Welcome to GreatestCapacity</h1>
+<nav>
+    <ul>
+        <li>首页</li>
+        <li>搜索</li>
+        <li>投稿</li>
+        <li>成为审稿人</li>
+        <li>订阅</li>
+        <li>个人信息管理</li>
+    </ul>
+</nav>
+{% if latest_article_list %}
+<div>
+    {% for article in latest_article_list %}
+    <div>
+        <h2>{{ article.title }}</h2>
+        <ul>
+            {% for author in article.authors.all %}
+            <li>{{ author.username }}</li>
+            {% endfor %}
+        </ul>
+        {% for content in article.content_set.all %}
+        <p>{{ content.content }}</p>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p>There's no article.</p>
+{% endif %}
+</body>
+</html>
