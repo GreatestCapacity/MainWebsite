@@ -59,9 +59,9 @@
 
 Python解释器：Python-3.6.7
 
-服务器：Django-2.2.1
+框架：Django-2.2.1
 
-反向代理服务器：nginx-1.16
+服务器：nginx-1.16
 
 ## 调研项目
 
