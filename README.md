@@ -84,12 +84,11 @@ Python解释器：Python-3.6.7
 
 创建数据库。PostgreSQL在安装好后会在系统中创建一个名为postgres的用户，并且在数据库中创建一个同名的超级用户，在自行创建更多的用户前我们只能通过这个默认用户来连接数据库 [5]，我们使用`sudo -i -u postgres`命令来切换到postgres用户，然后通过命令`createdb website`创建数据库。
 
-创建操作系统同名用户并授予其website数据库的所有权限，以便使用Peer Authentication [6]。切换到postgres用户后，使用命令`createuser 用户名 --interactive`来交互式地创建用户，创建过程会提三个问题，问该用户是否是超级用户、能否创建数据库、能否创建用户，按照具体需要选择便可。创建好后打开PostgreSQL的交互式终端psql [7]，使用`\c website`切换到创建好的数据库，然后使用以下SQL语句进行授权与更改用户密码。如果只使用Peer Authentication，则不需要设置密码。
+创建操作系统同名用户并授予其website数据库的所有权限，以便使用Peer Authentication [6]。切换到postgres用户后，使用命令`createuser 用户名 --interactive`来交互式地创建用户，创建过程会提三个问题，问该用户是否是超级用户、能否创建数据库、能否创建用户，按照具体需要选择便可。创建好后打开PostgreSQL的交互式终端psql [7]，使用`\c website`切换到创建好的数据库，然后使用以下SQL语句进行授权。
 
 ```plsql
 grant all on database website to 用户名;
 grant all privileges on all tables in schema public to 用户名;
-alter user 用户名 with password '密码'
 ```
 
 ### 安装Django-2.2.1并创建项目
@@ -98,11 +97,15 @@ alter user 用户名 with password '密码'
 
 创建Django项目。`django-admin startproject site_name`。
 
+配置Django项目。
+
 **注意安装与使用了哪些中间件**。
 
-设置数据库，在`settings.py`文件中，
-
 ```python
+# 设置允许所有IP地址访问
+ALLOWED_HOSTS = ['*']
+
+# 设置数据库
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -113,9 +116,12 @@ DATABASES = {
         'PORT': '',  # 置空使用默认的5432端口
     }
 }
+
+# 设置静态文件存放的文件夹
+STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 ```
 
-为Django当中安装的应用迁移数据库，运行`python3 manage.py migrate`即可。
+为Django当中安装的应用迁移数据库，运行`python3 manage.py migrate`。迁移应用当中用到的静态资源文件，运行`python3 manage.py collectstatic`。
 
 ## 测试环境搭建
 
@@ -149,15 +155,19 @@ CPU：1核
 | Installation Destination | Automatically configure partitioning. |
 | Security Policy          | No profile selected                   |
 | Root Password            | 123                                   |
+| Create User              | website                               |
+| User Password            | 123                                   |
 
 ### 自动化搭建脚本
 
-如果不是对搭建步骤完全熟悉的话，尽量选择手动安装方式，以免自动安装脚本因为某些例外情况报错后不会查错。
+如果不是对搭建步骤完全熟悉的话，尽量选择手动安装方式，以免自动安装脚本因为某些例外情况报错后不会查错。此脚本需要在root用户下运行。
 
 ```bash
 #!/bin/bash
 
-yum install -y net-tools wget gcc zlib-devel openssl-devel yum-utils
+yum install -y net-tools wget gcc zlib-devel openssl-devel yum-utils git postgresql-devel mlocate
+
+updatedb
 
 echo -e "[nginx-stable]\nname=nginx stable repo\nbaseurl=http://nginx.org/packages/centos/\$releasever/\$basearch/\ngpgcheck=1\nenabled=1\ngpgkey=https://nginx.org/keys/nginx_signing.key\n\n[nginx-mainline]\nname=nginx mainline repo\nbaseurl=http://nginx.org/packages/mainline/centos/\$releasever/\$basearch/\ngpgcheck=1\nenabled=0\ngpgkey=https://nginx.org/keys/nginx_signing.key" > /etc/yum.repos.d/nginx.repo
 
@@ -191,14 +201,19 @@ requirements.txt
 
 ```
 Django==2.2.1
+uwsgi==2.0.18
+psycopg2==2.8.2
 ```
 
-### 手动安装步骤
+### 手动搭建
+
+使用root登录系统，进行手动搭建。
 
 #### 安装必备小工具
 
 ```
-yum install -y net-tools wget ssh-server vim gcc zlib-devel openssl-devel
+yum install -y net-tools wget ssh-server vim gcc zlib-devel openssl-devel git postgresql-devel mlocate
+updatedb  # locate命令初始化数据库
 ```
 
 #### 安装nginx-1.16
@@ -246,11 +261,20 @@ make install
 
 ```
 pip3 install Django==2.2.1
+pip3 install uwsgi==2.0.18
+pip3 install psycopg2==2.8.2
 ```
 
 ### 安装后的配置
 
-根据“开发环境搭建”中“安装与配置PostgreSQL-10”提到的步骤创建数据库、创建操作系统同名用户、授权、更改密码。
+根据“开发环境搭建”中“安装与配置PostgreSQL-10”提到的步骤创建数据库、创建操作系统同名用户、授权。
+
+将8000端口加入防火墙，方便以后进行测试。
+
+```
+firewall-cmd --permanent --add-port=8000/tcp
+firewall-cmd --reload
+```
 
 ## 数据库设计
 
@@ -330,9 +354,93 @@ pip3 install Django==2.2.1
 
 ## 开发步骤
 
-### 拓展Django内置用户模型
+### 拓展Django内置用户模型与实现数据库模型
 
-### 实现数据库模型
+## 部署到测试虚拟机
+
+以website用户登录虚拟机
+
+```
+git clone https://github.com/GreatestCapacity/MainWebsite.git  # 克隆仓库
+cd MainWebsite/  # 进入目录
+python3 manage.py migrate  # 迁移数据库
+python3 manage.py runserver 0:8000  # 打开链接检查是否运行正常
+uwsgi --http :8000 --module server.wsgi  # 使用uWSGI运行服务器，检查是否正常
+```
+
+### 配置Nginx
+
+注意，网站是放在website用户目录下的，而nginx的运行用户是nginx，所以我们使用`usermod -a -G nginx website`命令将website用户加入到nginx用户组，以便于相关文件可以组内访问。同时，将website的用户目录权限设置为770，以使nginx拥有读写website用户目录的权限。
+
+确保`/etc/nginx`目录下有`uwsgi_params`文件，如果没有可以到[nginx的Github仓库](<https://github.com/nginx/nginx/blob/master/conf/uwsgi_params>)里下载 [11]。因为CentOS7安装的nginx没有`sites-available`和`sites-enabled`文件夹，`nginx.conf`文件中也没有引入这两个目录，所以我们就直接在`conf.d/`目录下替换掉`default.conf`的内容，来指向我们的网站。内容如下：
+
+```nginx
+# website_nginx.conf
+
+# the upstream component nginx needs to connect to
+upstream django {
+    server unix:/home/website/MainWebsite/uwsgi.sock; # for a file socket
+    # server 127.0.0.1:8001; # for a web port socket (we'll use this first)
+}
+
+
+# configuration of the server
+server {
+    # the port your site will be served on
+    listen      80;
+    # the domain name it will serve for
+    # server_name 127.0.0.1; # substitute your machine's IP address or FQDN
+    charset     utf-8;
+
+    # max upload size
+    client_max_body_size 75M;   # adjust to taste
+
+    # Django media
+    location /media  {
+        alias /home/website/MainWebsite/media;  # your Django project's media files - amend as required
+    }
+
+    location /static {
+        alias /home/website/MainWebsite/static; # your Django project's static files - amend as required
+    }
+
+    # Finally, send all non-media requests to the Django server.
+    location / {
+        uwsgi_pass  django;
+        include     /etc/nginx/uwsgi_params; # the uwsgi_params file you installed
+    }
+}
+```
+
+可以通过`nginx -t`命令先检查一下是否编写正确，再重启nginx。接下来在`MainWebsite/`目录下创建`website_uwsgi.ini`文件，内容如下：
+
+```ini
+# mysite_uwsgi.ini file
+[uwsgi]
+
+# Django-related settings
+# the base directory (full path)
+chdir           = /home/website/MainWebsite
+# Django's wsgi file
+module          = server.wsgi
+
+# process-related settings
+# master
+master          = true
+# maximum number of worker processes
+processes       = 10
+# the socket (use the full path to be safe
+socket          = /home/website/MainWebsite/uwsgi.sock
+# ... with appropriate permissions - may be needed
+# rw-rw-rw-，最低660，即rw-rw----
+chmod-socket    = 666
+# 允许nginx用户在组内访问uwsgi.sock文件
+chown-socket = website:nginx
+# clear environment on exit
+vacuum          = true
+```
+
+在重启过nginx后，通过`uwsgi --ini website_uwsgi.ini`命令运行网站，然后通过80端口访问这个网站观察结果。nginx的日志文件保存在`/var/log/nginx/`目录下，检查其下的`error.log`文件来确保没有发生错误。如果打开网站显示的页面依旧是“Welcome to nginx”，记得先清理一下浏览器缓存或关闭缓存后再测试一遍，如果依旧有问题再去寻求其他解决办法。一定要保证从根目录到`uwsgi.sock`途中的所有目录的权限最低为770，否则nginx没有权限读写`uwsgi.sock`会造成502 Bad Gateway错误，同时，没有权限访问静态资源文件会出现403 Forbidden错误。
 
 ## 参考文献
 
@@ -355,3 +463,5 @@ pip3 install Django==2.2.1
 [9] Nginx, Inc. nginx: Linux packages. [Official Webpage](http://nginx.org/en/linux_packages.html#RHEL-CentOS).
 
 [10] The PostgreSQL Global Development Group. PostgreSQL: Linux downloads (Red Hat family). [Official Webpage](https://www.postgresql.org/download/linux/redhat/).
+
+[11] Unbit s.a.s. Setting up Django and your web server with uWSGI and nginx. uWSGI 2.0 Documentation. [Official Webpage](https://uwsgi-docs.readthedocs.io/en/latest/tutorials/Django_and_nginx.html).
