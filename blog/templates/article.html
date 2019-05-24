@@ -2,9 +2,90 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{ article.title }}</title>
+
+    <!--StyleSheet-->
+    {% include 'stylesheet.html' %}
 </head>
 <body>
+<!--Header-->
+{% include 'header.html' %}
 
+{% load staticfiles %}
+
+<!--Content-->
+<div class="container">
+    <!--文章内容-->
+    <div class="row my-3">
+        <div>{{ content.content | safe }}</div>
+    </div>
+
+
+    <!-- 作者信息 -->
+    <div class="row">
+        <div class="card-deck">
+            {% for author in article.authors.all %}
+            <div class="card mb-3" style="width: 300px;">
+                <div class="row no-gutters">
+                    <div class="col-md-5">
+                        <img src="{% static 'user_avatar/img_avatar.png' %}" class="card-img" alt="用户头像">
+                    </div>
+                    <div class="col-md-7">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ author.username }}</h5>
+                            <p class="card-text">
+                                信誉值：{{ author.credit }}<br />
+                                影响力：{{ author.influ }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!--版本说明-->
+    {% if content.modif %}
+    <div class="row">
+        <div class="card bg-light w-100 mb-1">
+            <div class="card-header">当前版本相关说明</div>
+            <div class="card-body">
+                <p class="card-text">{{ content.modif }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!--基础信息-->
+    <div class="row">
+        <div class="card bg-light w-100">
+            <div class="card-header">文章相关基础信息</div>
+            <div class="card-body">
+                <p class="card-text">
+                    文章标题：{{ article.title }}<br />
+                    阅读量：{{ article.reads }}<br />
+                    初次发表时间：{{ article.pubtime }}<br />
+                    当前文章版本：{{ content.sbmt_time }}<br />
+                    {% if article.content_set.all|length > 1 %}
+                    本文的其他版本：
+                    <ul>
+                        {% for contnt in article.content_set.all %}
+                        {% if not content.id == contnt.id %}
+                        <li><a href="{% url 'article' article.id contnt.id %}">{{ contnt.sbmt_time | safe }}</a></li>
+                        {% endif %}
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </p>
+            </div><!-- /.card-body -->
+        </div><!-- /.card.bg-light -->
+    </div><!-- /.row -->
+
+</div><!-- /.container -->
+
+<!--Footer-->
+{% include 'footer.html' %}
 </body>
 </html>
