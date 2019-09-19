@@ -119,6 +119,12 @@ DATABASES = {
 
 # 设置静态文件存放的文件夹
 STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+
+# 设置静态文件查找器
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
 ```
 
 为Django当中安装的应用迁移数据库，运行`python3 manage.py migrate`。迁移应用当中用到的静态资源文件，运行`python3 manage.py collectstatic`。
@@ -356,6 +362,22 @@ firewall-cmd --reload
 
 ### 拓展Django内置用户模型与实现数据库模型
 
+### LaTeX转HTML
+
+```
+pandoc xxx.tex -o xxx.html --mathjax --filter pandoc-crossref --bibliography=xxx.bib --csl=xxx.csl
+```
+
+--mathjax：使用MathJax
+
+--filter pandoc-crossref：使用pandoc-crossref过滤器来处理文件中的交叉引用
+
+--bibliography=xxx.bib：使用pandoc-citeproc来生成参考文献列表
+
+--csl=xxx.csl：指定生成参考文献的格式
+
+#### 编写Pandoc过滤器来转换图片路径
+
 ## 部署到测试虚拟机
 
 以website用户登录虚拟机
@@ -370,7 +392,7 @@ uwsgi --http :8000 --module server.wsgi  # 使用uWSGI运行服务器，检查�
 
 ### 配置Nginx
 
-注意，网站是放在website用户目录下的，而nginx的运行用户是nginx，所以我们使用`usermod -a -G nginx website`命令将website用户加入到nginx用户组，以便于相关文件可以组内访问。同时，将website的用户目录权限设置为770，以使nginx拥有读写website用户目录的权限。
+注意，网站是放在website用户目录下的，而nginx的默认运行用户是nginx，为了能够让nginx有权访问到website用户目录下的网站文件，我们需要将nginx的默认用户设置为website，编辑`/etc/nginx/nginx.conf`，将`user nginx`改为`user website`，而后重启nginx便可。
 
 确保`/etc/nginx`目录下有`uwsgi_params`文件，如果没有可以到[nginx的Github仓库](<https://github.com/nginx/nginx/blob/master/conf/uwsgi_params>)里下载 [11]。因为CentOS7安装的nginx没有`sites-available`和`sites-enabled`文件夹，`nginx.conf`文件中也没有引入这两个目录，所以我们就直接在`conf.d/`目录下替换掉`default.conf`的内容，来指向我们的网站。内容如下：
 
@@ -396,7 +418,7 @@ server {
     client_max_body_size 75M;   # adjust to taste
 
     # Django media
-    location /media  {
+    location /media {
         alias /home/website/MainWebsite/media;  # your Django project's media files - amend as required
     }
 
@@ -465,3 +487,4 @@ vacuum          = true
 [10] The PostgreSQL Global Development Group. PostgreSQL: Linux downloads (Red Hat family). [Official Webpage](https://www.postgresql.org/download/linux/redhat/).
 
 [11] Unbit s.a.s. Setting up Django and your web server with uWSGI and nginx. uWSGI 2.0 Documentation. [Official Webpage](https://uwsgi-docs.readthedocs.io/en/latest/tutorials/Django_and_nginx.html).
+
